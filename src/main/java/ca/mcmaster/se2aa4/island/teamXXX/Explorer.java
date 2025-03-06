@@ -22,10 +22,16 @@ public class Explorer implements IExplorerRaid {
         logger.info("Drone is facing: {}", heading);
     }
 
-    @Override
-    public String takeDecision() {
-        return new JSONObject().put("action", "stop").toString();
-    }
+	@Override
+	public String takeDecision() {
+    	JSONObject decision = new JSONObject();
+    	if (battery > 0) {
+        	decision.put("action", "fly");
+    	} else {
+        	decision.put("action", "stop");
+    	}
+    	return decision.toString();
+	}
 
     @Override
     public void acknowledgeResults(String s) {
