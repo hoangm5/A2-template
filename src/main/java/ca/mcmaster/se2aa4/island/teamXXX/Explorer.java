@@ -62,3 +62,20 @@ public class Explorer implements IExplorerRaid {
         return foundCreek ? "Rescue creek found: " + creekId : "No creek found";
     }
 }
+
+private int emergencyX = -1, emergencyY = -1;
+private List<JSONObject> creeks = new ArrayList<>();
+
+private void findNearestCreek() {
+    int minDistance = Integer.MAX_VALUE;
+    for (JSONObject creek : creeks) {
+        int creekX = creek.getInt("x");
+        int creekY = creek.getInt("y");
+        int distance = Math.abs(emergencyX - creekX) + Math.abs(emergencyY - creekY);
+        if (distance < minDistance) {
+            minDistance = distance;
+            creekId = creek.getString("id");
+        }
+    }
+}
+
