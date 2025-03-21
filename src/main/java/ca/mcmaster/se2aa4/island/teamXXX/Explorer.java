@@ -22,6 +22,26 @@ public class Explorer implements IExplorerRaid {
     private String lastScanResult = "";
     private int moveCounter = 0;
     private final List<String> directions = Arrays.asList("NORTH", "EAST", "SOUTH", "WEST");
+    private ExplorerState state;
+    private final List<ExplorerObserver> observers = new ArrayList<>();
+    
+    public Explorer() {
+        this.state = new ScanningState(this);
+    }
+    
+    public void setState(ExplorerState newState) {
+        this.state = newState;
+    }
+    
+    public void addObserver(ExplorerObserver observer) {
+        observers.add(observer);
+    }
+    
+    public void notifyObservers(String message) {
+        for (ExplorerObserver observer : observers) {
+            observer.update(message);
+        }
+    }
     
     @Override
     public void initialize(String s) {
@@ -32,62 +52,19 @@ public class Explorer implements IExplorerRaid {
         battery = info.getInt("budget");
         droneX = 1;
         droneY = 1;
+        notifyObservers("Explorer initialized with battery: " + battery);
     }
     
     @Override
     public String takeDecision() {
-        JSONObject decision = new JSONObject();
-        
-        if (!emergencySite.isEmpty() && !creeks.isEmpty()) {
-            computeClosestCreek();
-            decision.put("action", "stop");
-        } else {
-            decision = explore();
-        }
-        
-        logger.info("** Decision: {}", decision.toString());
-        return decision.toString();
-    }
-    
-    private JSONObject explore() {
-        JSONObject decision = new JSONObject();
-        
-        if (moveCounter % 3 == 0 || visitedCells.isEmpty()) {
-            decision.put("action", "scan");
-        } else {
-            if (lastScanResult.equals("OCEAN")) {
-                decision.put("action", "heading");
-                direction = getNewDirection();
-                decision.put("direction", direction);
-            } else {
-                decision.put("action", "fly");
-                updateDronePosition();
-            }
-        }
-        
-        moveCounter++;
-        return decision;
-    }
-    
-    private void updateDronePosition() {
-        visitedCells.add(droneX + "," + droneY);
-        switch (direction) {
-            case "NORTH": droneY += 1; break;
-            case "SOUTH": droneY -= 1; break;
-            case "EAST": droneX += 1; break;
-            case "WEST": droneX -= 1; break;
-        }
-    }
-    
-    private String getNewDirection() {
-        int currentIndex = directions.indexOf(direction);
-        return directions.get((currentIndex + 1) % directions.size());
+        return state.takeAction();
     }
     
     @Override
     public void acknowledgeResults(String s) {
         JSONObject response = new JSONObject(new JSONTokener(new StringReader(s)));
         battery -= response.getInt("cost");
+        notifyObservers("Battery reduced to: " + battery);
         
         if (response.has("extras")) {
             JSONObject extras = response.getJSONObject("extras");
@@ -99,8 +76,10 @@ public class Explorer implements IExplorerRaid {
                         String creekId = poi.getString("id");
                         creeks.add(creekId);
                         creekDistances.put(creekId, Math.abs(droneX) + Math.abs(droneY));
+                        notifyObservers("Found creek: " + creekId);
                     } else if (poi.getString("kind").equals("SITE")) {
                         emergencySite = poi.getString("id");
+                        notifyObservers("Found emergency site: " + emergencySite);
                     }
                 }
             }
@@ -108,12 +87,6 @@ public class Explorer implements IExplorerRaid {
                 lastScanResult = extras.getJSONArray("biomes").toString();
             }
         }
-    }
-    
-    private void computeClosestCreek() {
-        closestCreek = creeks.stream()
-                .min(Comparator.comparingInt(creekDistances::get))
-                .orElse("");
     }
     
     @Override

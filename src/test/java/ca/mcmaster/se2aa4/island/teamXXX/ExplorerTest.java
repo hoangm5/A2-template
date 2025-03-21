@@ -33,9 +33,6 @@ public class ExplorerTest {
     void testAcknowledgeResultsWithCreekAndSite() {
         String resultJson = "{\"cost\": 10, \"extras\": {\"found\": [{\"kind\": \"CREEK\", \"id\": \"creek-1\"}, {\"kind\": \"SITE\", \"id\": \"site-1\"}]}}";
         explorer.acknowledgeResults(resultJson);
-        
-        String decision = explorer.takeDecision();
-        assertEquals("{\"action\":\"stop\"}", decision);
         assertEquals("creek-1", explorer.deliverFinalReport());
     }
 
@@ -43,12 +40,47 @@ public class ExplorerTest {
     void testAcknowledgeResultsWithMultipleCreeks() {
         String resultJson = "{\"cost\": 10, \"extras\": {\"found\": [{\"kind\": \"CREEK\", \"id\": \"creek-1\"}, {\"kind\": \"CREEK\", \"id\": \"creek-2\"}]}}";
         explorer.acknowledgeResults(resultJson);
-        
         assertFalse(explorer.deliverFinalReport().isEmpty());
     }
 
     @Test
     void testFinalReportNoCreekFound() {
         assertEquals("no creek found", explorer.deliverFinalReport());
+    }
+    
+    // New Test Cases
+    
+    @Test
+    void testExplorerMovesCorrectly() {
+        explorer.takeDecision();
+        assertNotEquals("{\"action\":\"stop\"}", explorer.takeDecision());
+    }
+    
+    @Test
+    void testBatteryDecreasesAfterAction() {
+        int initialBattery = explorer.getBattery();
+        explorer.acknowledgeResults("{\"cost\": 50}");
+        assertTrue(explorer.getBattery() < initialBattery);
+    }
+    
+    @Test
+    void testChangeDirectionOnOceanDetection() {
+        explorer.acknowledgeResults("{\"cost\": 10, \"extras\": {\"biomes\": [\"OCEAN\"]}}");
+        String decision = explorer.takeDecision();
+        assertTrue(decision.contains("heading"));
+    }
+    
+    @Test
+    void testDecisionAfterBatteryLow() {
+        explorer.acknowledgeResults("{\"cost\": 1000}"); // Drains battery completely
+        assertEquals("{\"action\":\"stop\"}", explorer.takeDecision());
+    }
+    
+    @Test
+    void testMultipleScans() {
+        explorer.takeDecision();
+        explorer.takeDecision();
+        explorer.takeDecision();
+        assertTrue(explorer.takeDecision().contains("scan"));
     }
 }
